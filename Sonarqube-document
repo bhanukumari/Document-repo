@@ -1,0 +1,19 @@
+sudo apt update
+sudo apt install openjdk-17-jdk
+wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.0.65466.zip
+sudo apt install unzip
+cd /opt
+sudo mkdir sonarqube
+cd sonarqube/
+cd
+sudo unzip sonarqube-9.9.0.65466.zip -d /opt/sonarqube
+sudo adduser elasticuser
+cd /opt/sonarqube
+ls
+cd sonarqube-9.9.0.65466/
+ls
+/opt
+ls
+sudo chown elasticuser sonarqube/ -R
+su elasticuser
+/opt/sonarqube/sonarqube-9.9.0.65466/bin/linux-x86-64/sonar.sh console
