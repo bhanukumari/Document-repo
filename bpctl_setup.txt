@@ -1,0 +1,36 @@
+step to install bpctl 
+1) clone this repo (git clone git@bitbucket.org:okts/bpctl.git)
+2) go to this path  vi /bin/bpctl in this fike mention this script(#!/bin/bash
+python3 /root/bpctl/lib/bpctl/bpctl.py "$@"
+)
+3) create a directory mkdir .dr  in this dr directory create one config file and mention this 
+(config
+[root@INUNLSREBPPR711 .bp]# cat config
+apiVersion: v1
+bps:
+- bp:
+    server: http://127.0.0.1:9001
+  name: bp-dev
+contexts:
+- context:
+    bp: bp-dev
+    user: super-admin
+  name: super-admin@bp-dev
+current-context: super-admin@bp-dev
+kind: Config
+preferences: {}
+users:
+- name: super-admin
+  user:
+    credential: QnVpbGRwaXBlckAxNzA5OTg=
+    token: ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKSVV6VXhNaUo5LmV5SjBiMnRsYmw5MGVYQmxJam9pWVdOalpYTnpJaXdpWlhod0lqb3hOekF3TlRjeE5ETXhMQ0pxZEdraU9pSXhPR05rTnpKalpHTmtOVE0wWVRZellURTVNRFE1T0dFMVpURTJPVGMwWWlJc0luVnpaWEpmYVdRaU9qUjkuUWNOakNFMFJjdW1EWmVCS1RRX2ZBVkdMeXRyMHhYNmpSX1VyVWZFSl9ObG9LTVBHQWI5aFJoYzcybEFKSDVNeTJUSU92c1VaaXhCbTZxMk4wQWJ3Vmc=
+    username: c2FueWFtLmthbHJh=
+)
+
+problem (Login response code: 400)
+solution
+( cd /root/bpctl/lib/bpctl/
+   ls
+  vi authenticate.py
+   bpctl login
+   cd)
