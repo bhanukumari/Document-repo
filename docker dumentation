@@ -1,0 +1,15 @@
+kubectl cluster-info               --------------------------- Cluster Information: Retrieve information about the cluster.
+kubectl get nodes                  ---------------------------  View Nodes: List all nodes in the cluster.
+kubectl describe node <node-name>  ----------------------- Describe Node: Get detailed information about a specific node.
+kubectl get pods                   ---------------------------  List Pods: List all pods running in the cluster.
+kubectl create deployment <deployment-name> --image=<image-name>       ---- Create Deployment: Deploy an application using a Deployment.
+kubectl scale deployment <deployment-name> --replicas=<desired-replica-count>   ---- Scale Deployment: Scale the number of replicas of a Deployment.
+kubectl logs <pod-name>            -------------------------   Pod Logs: View the logs of a pod.
+kubectl get services               List Services: List all services in the cluster.
+kubectl expose deployment <deployment-name> --type=NodePort --port=<port>  ---- Expose Service: Expose a deployment as a service.
+kubectl port-forward <pod-name> <local-port>:<pod-port>   --  Port Forward: Forward local ports to a pod.
+kubectl get namespaces             ---------------------  List Namespaces: List all namespaces in the cluster.
+kubectl create namespace <namespace-name>  -------------  Create Namespace: Create a new namespace.
+       
+       
+https://medium.com/@saurabhdahibhate50/the-ultimate-cheat-sheet-for-kubernetes-kubectl-pdf-e9b15091ab5f -------  (All command Documentation)
