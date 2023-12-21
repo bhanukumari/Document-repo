@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+    tools {
+        terraform 'terraform'
+    }
+    stages {
+        stage('git checkout') {
+            steps {
+                
+                git branch: 'main', url: 'https://github.com/ritesh107/terra_test.git'
+            }
+        }
+    
+        stage('terraform init') {
+             steps {
+                dir('ritesh_terraform') {
+                    sh 'terraform init'
+                }
+            }
+            
+        }
+         stage('terraform validate') {
+             steps {
+                dir('ritesh_terraform') {
+                    sh 'terraform validate'
+                }
+            }
+            
+        }
+         stage('terraform plan') {
+             steps {
+                dir('ritesh_terraform') {
+                    sh 'terraform plan'
+                }
+            }
+            
+        }
+          stage('terraform apply') {
+             steps {
+                dir('ritesh_terraform') {
+                    sh 'terraform destroy -auto-approve'
+                    
+                }
+            }
+            
+        }
+    }
+post {
+    success {
+            echo "${env.JOB_NAME}"
+               slackSend channel: 'jenkins_report', color: '#439FE0', message: "JOB_NAME: ${env.JOB_NAME} BUILD_ID: ${env.BUILD_ID} WORKSPACE: ${env.WORKSPACE} Successful", teamDomain: 'opstree', tokenCredentialId: 'slack-tokenn', username: 'Ritesh Kumar'
+               emailext attachLog: true, body: 'Pipeline Successfull', subject: 'JOB_NAME:$JOB_NAME BUILD_NUMBER:$BUILD_NUMBER', to: 'riteshkumar19325@gmail.com'
+                  }
+    failure {
+            echo "${env.JOB_NAME}"
+            slackSend channel: 'jenkins_report', color: '#439FE0', message: "JOB_NAME: ${env.JOB_NAME} BUILD_ID: ${env.BUILD_ID} WORKSPACE: ${env.WORKSPACE} Un-Successful", teamDomain: 'opstree', tokenCredentialId: 'slack-tokenn', username: 'Ritesh Kumar'
+            emailext attachLog: true, body: 'Pipeline Unsuccessfull', subject: 'JOB_NAME:$JOB_NAME BUILD_NUMBER:$BUILD_NUMBER BUILD_ID:$BUILD_ID', to: 'riteshkumar19325@gmail.com'
+             }
+        }
+}
