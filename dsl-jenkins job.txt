@@ -1,0 +1,480 @@
+//def gitUrl = binding.variables.get("yoyo")
+// def yo = "${tech}"
+def Servicename=null
+if ( "${REPO_NAME}".split("_")[1] == 'Repo'){
+
+Servicename="${REPO_NAME}".split("_")[2..-1].join('')
+//def defaultBranch=env."${environment}_BRANCH"
+}
+else{
+  Servicename="${REPO_NAME}".split("_")[1..-1].join('')
+}
+
+if ( "${tech}" == 'Nodejs'){
+folder("${Servicename}-${tech}") {
+    description('Folder containing all jobs for '+"${Servicename}")
+}
+folder("${Servicename}-${tech}/${environment}") {
+  description('Folder containing all jobs for '+"${environment}")
+}
+pipelineJob("${Servicename}-${tech}/${environment}/${Servicename}-job") {
+  definition {
+    cps {
+      parameters {
+       string {
+         name('BRANCH')
+         defaultValue("\$${environment}_${tech}_BRANCH")
+         description('branch for git repo')
+         trim(true)
+            }
+        }
+      script("""
+@Library('github.com/pluraldevjenkins/jenkins-libraries')
+String REPO_NAME = "${REPO_NAME}"
+String APP_NAME = "${Servicename}-${tech}"
+String APP_NAME_LOWERCASE = "${Servicename}-${tech}".toLowerCase()
+def Pipeline = new me.tarunsinghal.Pipeline()
+def CLUSTER_NAME = "INAWPLREKSCL147"
+def REGION = "ap-south-1"
+def CREDENTIALS_ID = "git-common-key"
+def HELM_REPO = "git@github.com:Pinelabs-Pvt/Plural_Repo_Kubernetes_Manifest"
+def HELM_DIR = "HelmDir/service-helms"
+def IMG_REPO = "642803614633.dkr.ecr.ap-south-1.amazonaws.com/pluraldev"
+def TAG = null
+def ENV = "${environment}"
+def dockerfile= env.${environment}_${tech}_DOCKERFILE
+def namespace= env.${environment}_NAMESPACE
+""" +
+             '''
+//Snippet to enable webhook on the github NODEJS projects, so that the builds are triggered automatically when ever there is git push from dev/qa team
+properties([pipelineTriggers([githubPush()])])
+pipeline {
+    agent any
+	options { disableConcurrentBuilds() }
+	stages {
+        stage("Clean Workspace") {
+            steps {
+                  cleanWs()
+            }
+        }
+        stage("git") {
+            steps { 
+				git branch: "${BRANCH}", credentialsId: "${CREDENTIALS_ID}", url: "git@github.com:Pinelabs-Pvt/${REPO_NAME}"
+            }
+        }
+        stage('Version') {
+            steps {
+                script {
+                    Version = sh (
+                                    script: "git rev-parse --short=7 HEAD",
+                                    returnStdout: true
+                                ).trim()
+					TAG = "${APP_NAME_LOWERCASE}-${Version}-${BUILD_NUMBER}"
+					chart_dir="${HELM_DIR}/${APP_NAME}"
+                    println "${TAG} AND ${chart_dir}"
+               
+                }
+            }
+        }
+        stage("Dockerfile") {
+            steps {
+                  configFileProvider([configFile(fileId: "${dockerfile}", targetLocation: './Dockerfile'),configFile(fileId: 'postactions', targetLocation: './postactions')]) {}
+                }          
+            }
+
+        stage("Build image") {
+            steps {
+                script {
+                    sh label: '', script: """
+									sed -i "s/{APPNAME}/$APP_NAME_LOWERCASE/g" Dockerfile
+									docker build -t ${IMG_REPO}:${TAG} .
+									"""
+                }
+            }
+        }
+        stage('ECR login') {
+            steps {
+                script{
+                    sh label: '', script: "aws ecr get-login-password --region ${REGION} --profile role | docker login --username AWS --password-stdin ${IMG_REPO} "
+                }
+            }
+        }
+     
+	    stage('Push images') {
+	        steps{
+	            script{
+                    sh label: '', script: """docker push ${IMG_REPO}:${TAG}"""
+                    }
+	        }
+	    }
+        stage('cluster login') {
+            steps {
+                script {
+                        Pipeline.clusterLogin(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV,
+                        REGION : REGION,
+                        CLUSTER_NAME : CLUSTER_NAME)
+                }
+            }
+        }
+        stage("Helm repo clone") {
+            
+            steps { 
+                dir('HelmDir') {
+                git branch: "dev_branch", credentialsId: "${CREDENTIALS_ID}", url: "${HELM_REPO}"
+                }
+            }
+        }
+        stage('Deploying Application through HELM') {
+            steps {
+                script {
+                    Pipeline.helmDeploy(                    
+                        dry_run : false,
+                        name : APP_NAME_LOWERCASE,
+                        namespace : namespace,
+                        chart_dir : chart_dir,
+                        version_tag : TAG
+                    )
+                }
+            }
+        }
+     }
+    post ('revoke') {
+            always{
+                script {
+                        Pipeline.postActions(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV)
+                }
+            }
+        
+			failure {
+                emailext attachLog: true, body: \'\'\'$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+Check console output at $BUILD_URL to view the results.\'\'\', compressLog: true, subject: '$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!','''+""" to: \'\$DEFAULT_RECIPIENTS ${RECIPIENT_EMAILS}\'"""+'''
+			}
+    }
+
+}
+    ''')   
+    }
+  }
+}
+}
+else 
+if ( "${tech}" == 'Dotnet'){
+folder("EKS-Dotnet/${Servicename}-${tech}") {
+    description('Folder containing all jobs for '+"${Servicename}")
+}
+folder("EKS-Dotnet/${Servicename}-${tech}/${environment}") {
+  description('Folder containing all jobs for '+"${environment}")
+}
+
+  pipelineJob("EKS-Dotnet/${Servicename}-${tech}/${environment}/${Servicename}-job") {
+  definition {
+    cps {
+      parameters {
+       string {
+         name('BRANCH')
+         defaultValue("\$${environment}_${tech}_BRANCH")
+         description('branch for git repo')
+         trim(true)
+            }
+        }
+      script("""
+@Library('github.com/pluraldevjenkins/jenkins-libraries')
+String REPO_NAME = "${REPO_NAME}"
+String APP_NAME = "${Servicename}-${tech}"
+String APP_NAME_LOWERCASE = "${Servicename}-${tech}".toLowerCase()
+def Pipeline = new me.tarunsinghal.Pipeline()
+def CLUSTER_NAME = "INAWPLREKSCL147"
+def REGION = "ap-south-1"
+def CREDENTIALS_ID = "git-common-key"
+def DLLNAME = "${DLL_NAME}"
+def HELM_REPO = "git@github.com:Pinelabs-Pvt/Plural_Repo_Kubernetes_Manifest"
+def HELM_DIR = "HelmDir/service-helms"
+def IMG_REPO = "642803614633.dkr.ecr.ap-south-1.amazonaws.com/pluraldev"
+def TAG = null
+def ENV = "${environment}"
+def dockerfile= env.${environment}_${tech}_DOCKERFILE
+def namespace= env.${environment}_NAMESPACE
+""" +
+      '''
+//Snippet to enable webhook on the github DOTNET projects, so that the builds are triggered automatically when ever there is git push from dev/qa team            
+//properties([pipelineTriggers([githubPush()])])
+pipeline {
+    agent any
+	options { disableConcurrentBuilds() }
+    stages {
+        stage("Clean Workspace") {
+            steps {
+                  cleanWs()
+            }
+        }
+        stage("git") {
+            steps { 
+				git branch: "${BRANCH}", credentialsId: "${CREDENTIALS_ID}", url: "git@github.com:Pinelabs-Pvt/${REPO_NAME}"
+            }
+        }
+        stage('Version') {
+            steps {
+                script {
+                    Version = sh (
+                                    script: "git rev-parse --short=7 HEAD",
+                                    returnStdout: true
+                                ).trim()
+                    TAG = "${APP_NAME_LOWERCASE}-${Version}-${BUILD_NUMBER}"
+					chart_dir="${HELM_DIR}/${APP_NAME}"
+                    println "${TAG} AND ${chart_dir}"
+               
+                }
+            }
+        }
+        stage("Dockerfile") {
+            steps {
+                  configFileProvider([configFile(fileId: "${dockerfile}", targetLocation: './Dockerfile'),configFile(fileId: 'postactions', targetLocation: './postactions')]) {}
+                }          
+            }
+
+        stage("Build image") {
+            steps {
+                script {
+                    sh label: '', script: """
+							sed -i "s/{APPNAME}/$APP_NAME_LOWERCASE/g" Dockerfile
+							sed -i "s/{dllname}/$DLLNAME/g" Dockerfile
+							docker build -t ${IMG_REPO}:${TAG} .
+							"""
+                }
+            }
+        }
+        stage('ECR login') {
+            steps {
+                script{
+                    sh label: '', script: "aws ecr get-login-password --region ${REGION} --profile role | docker login --username AWS --password-stdin ${IMG_REPO} "
+                }
+            }
+        }
+     
+	    stage('Push images') {
+	        steps{
+	            script{
+                    sh label: '', script: """docker push ${IMG_REPO}:${TAG}
+                                            aws sts get-caller-identity --profile role
+                                            aws s3 ls --profile role"""
+                    }
+	        }
+	    }
+        stage('cluster login') {
+            steps {
+                script {
+                        Pipeline.clusterLogin(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV,
+                        REGION : REGION,
+                        CLUSTER_NAME : CLUSTER_NAME)
+                }
+            }
+        }
+        stage("Helm repo clone") {
+            
+            steps { 
+                dir('HelmDir') {
+                git branch: "dev_branch", credentialsId: "${CREDENTIALS_ID}", url: "${HELM_REPO}"
+                }
+            }
+        }
+        stage('Deploying Application through HELM') {
+            steps {
+                script {
+                    Pipeline.helmDeploy(                    
+                        dry_run : false,
+                        name : APP_NAME_LOWERCASE,
+                        namespace : namespace,
+                        chart_dir : chart_dir,
+                        version_tag : TAG
+                    )
+                }
+            }
+        }
+     }
+    post ('revoke') {
+            always{
+                script {
+                        Pipeline.postActions(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV)
+                }
+            }
+        
+			failure {
+                emailext attachLog: true, body: \'\'\'$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+Check console output at $BUILD_URL to view the results.\'\'\', compressLog: true, subject: '$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!','''+""" to: \'\$DEFAULT_RECIPIENTS ${RECIPIENT_EMAILS}\'"""+'''
+			}
+    }
+
+}
+    ''')   
+      
+    }
+  }
+}
+}
+else 
+if ( "${tech}" == 'Java'){
+folder("${Servicename}-${tech}") {
+    description('Folder containing all jobs for '+"${Servicename}")
+}
+folder("${Servicename}-${tech}/${environment}") {
+  description('Folder containing all jobs for '+"${environment}")
+}
+
+  pipelineJob("${Servicename}-${tech}/${environment}/${Servicename}-job") {
+  definition {
+    cps {
+      parameters {
+       string {
+         name('BRANCH')
+         defaultValue("\$${environment}_${tech}_BRANCH")
+         description('branch for git repo')
+         trim(true)
+            }
+        }
+      script("""
+@Library('github.com/pluraldevjenkins/jenkins-libraries')
+String REPO_NAME = "${REPO_NAME}"
+String APP_NAME = "${Servicename}-${tech}"
+String APP_NAME_LOWERCASE = "${Servicename}-${tech}".toLowerCase()
+def Pipeline = new me.tarunsinghal.Pipeline()
+def CLUSTER_NAME = "INAWPLREKSCL147"
+def REGION = "ap-south-1"
+def CREDENTIALS_ID = "git-common-key"
+def DLLNAME = "${DLL_NAME}"
+def HELM_REPO = "git@github.com:Pinelabs-Pvt/Plural_Repo_Kubernetes_Manifest"
+def HELM_DIR = "HelmDir/service-helms"
+def IMG_REPO = "642803614633.dkr.ecr.ap-south-1.amazonaws.com/pluraldev"
+def TAG = null
+def ENV = "${environment}"
+def dockerfile= env.${environment}_${tech}_DOCKERFILE
+def namespace= env.${environment}_NAMESPACE
+""" +
+             '''
+//properties([pipelineTriggers([githubPush()])])
+pipeline {
+    agent any
+	options { disableConcurrentBuilds() }
+    stages {
+        stage("Clean Workspace") {
+            steps {
+                  cleanWs()
+            }
+        }
+        stage("git") {
+            steps { 
+				git branch: "${BRANCH}", credentialsId: "${CREDENTIALS_ID}", url: "git@github.com:Pinelabs-Pvt/${REPO_NAME}"
+            }
+        }
+        stage('Version') {
+            steps {
+                script {
+                    Version = sh (
+                                    script: "git rev-parse --short=7 HEAD",
+                                    returnStdout: true
+                                ).trim()
+                    TAG = "${APP_NAME_LOWERCASE}-${Version}-${BUILD_NUMBER}"
+					chart_dir="${HELM_DIR}/${APP_NAME}"
+                    println "${TAG} AND ${chart_dir}"
+               
+                }
+            }
+        }
+        stage("Dockerfile") {
+            steps {
+                  configFileProvider([configFile(fileId: "${dockerfile}", targetLocation: './Dockerfile'),configFile(fileId: 'postactions', targetLocation: './postactions')]) {}
+                }          
+            }
+
+        stage("Build image") {
+            steps {
+                script {
+                    sh label: '', script: """
+							sed -i "s/{APPNAME}/$APP_NAME_LOWERCASE/g" Dockerfile
+							docker build -t ${IMG_REPO}:${TAG} .
+							"""
+                }
+            }
+        }
+        stage('ECR login') {
+            steps {
+                script{
+                    sh label: '', script: "aws ecr get-login-password --region ${REGION} --profile role | docker login --username AWS --password-stdin ${IMG_REPO} "
+                }
+            }
+        }
+     
+	    stage('Push images') {
+	        steps{
+	            script{
+                    sh label: '', script: """docker push ${IMG_REPO}:${TAG}
+                                            aws sts get-caller-identity --profile role
+                                            #aws s3 ls --profile role"""
+                    }
+	        }
+	    }
+        stage('cluster login') {
+            steps {
+                script {
+                        Pipeline.clusterLogin(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV,
+                        REGION : REGION,
+                        CLUSTER_NAME : CLUSTER_NAME)
+                }
+            }
+        }
+        stage("Helm repo clone") {
+            
+            steps { 
+                dir('HelmDir') {
+                git branch: "dev_branch", credentialsId: "${CREDENTIALS_ID}", url: "${HELM_REPO}"
+                }
+            }
+        }
+        stage('Deploying Application through HELM') {
+            steps {
+                script {
+                    Pipeline.helmDeploy(                    
+                        dry_run : false,
+                        name : APP_NAME_LOWERCASE,
+                        namespace : namespace,
+                        chart_dir : chart_dir,
+                        version_tag : TAG
+                    )
+                }
+            }
+        }
+     }
+    post ('revoke') {
+            always{
+                script {
+                        Pipeline.postActions(
+                        APP_NAME : APP_NAME,
+                        ENV : ENV)
+                }
+            }
+        
+			failure {
+                emailext attachLog: true, body: \'\'\'$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+Check console output at $BUILD_URL to view the results.\'\'\', compressLog: true, subject: '$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!','''+""" to: \'\$DEFAULT_RECIPIENTS ${RECIPIENT_EMAILS}\'"""+'''
+			}
+    }
+
+}
+    ''')   
+      
+    }
+  }
+}
+}
