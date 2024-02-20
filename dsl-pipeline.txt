@@ -1,0 +1,70 @@
+//def gitUrl = binding.variables.get("yoyo")
+// def yo = "${tech}"
+folder("${Servicename}-${tech}") {
+    description('Folder containing all jobs for folder-a')
+}
+
+folder("${Servicename}-${tech}/${environment}") {
+    description('Folder containing all jobs for folder-a')
+}
+if ( "${tech}" == 'Nodejs'){
+freeStyleJob("${Servicename}-${tech}/${environment}/${Servicename}-job") {
+  
+   configure { project -> 
+    project / 'properties' << 'EnvInjectJobProperty' {
+
+        info {
+          loadFilesFromMaster false
+          propertiesContent 'REPO_NAME=${REPO_NAME}'
+        }
+        keepBuildVariables true
+        keepJenkinsSystemVariables true
+        overrideBuildParameters false
+        on true
+    }
+  }
+     parameters {
+       string {
+         name('BRANCH')
+         defaultValue('dev_branch')
+         description('branch for git repo')
+         trim(false)
+            }
+        }
+    scm {
+      github("${REPO_NAME}", '${BRANCH}', 'ssh')
+    }
+
+    triggers {
+        githubPush()
+    }
+  wrappers {
+        nodejs('Node10')
+    steps {
+        shell("""export REPO=$REPO_NAME 
+export Servicename=$Servicename
+npm install
+npm run build:development
+""" +
+'''rsync -rvz .  /mnt/PluralXT/jtesting/$REPO/
+cd /mnt/PluralXT/jtesting/$REPO/
+ls
+sudo pm2 delete --silent $Servicename-service
+sudo npm run pm2:development''')
+    }}}
+}
+else 
+if ("${tech}" == 'Dotnet'){
+  job("${Servicename}-${tech}/${environment}/${Servicename}-job") {
+    jdk('Java 8')
+    scm {
+        github('jenkinsci/job-dsl-plugin', 'master')
+    }
+    triggers {
+        githubPush()
+    }
+    steps {
+        gradle('clean build')
+    }
+}
+}
